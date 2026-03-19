@@ -27,3 +27,7 @@ env/
 
 # Test artifacts
 *.arcx
+image_1.dat
+*.dat
+module_*.py
+dataset_*.bin
