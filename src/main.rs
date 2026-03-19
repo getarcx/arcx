@@ -309,11 +309,7 @@ fn decode_config(data: &[u8], offset: usize) -> Result<(Config, usize)> {
     ))
 }
 
-fn decode_files(
-    data: &[u8],
-    offset: usize,
-    strings: &[String],
-) -> Result<(Vec<FileEntry>, usize)> {
+fn decode_files(data: &[u8], offset: usize, strings: &[String]) -> Result<(Vec<FileEntry>, usize)> {
     let (count, mut pos) = decode_varint(data, offset)?;
     let mut files = Vec::with_capacity(count as usize);
 
@@ -576,10 +572,9 @@ pub(crate) struct ArchiveReader {
 
 impl ArchiveReader {
     pub(crate) fn open(path: &std::path::Path) -> Result<Self> {
-        let file = File::open(path)
-            .with_context(|| format!("Cannot open archive: {}", path.display()))?;
-        let mmap = unsafe { Mmap::map(&file) }
-            .context("Failed to memory-map archive")?;
+        let file =
+            File::open(path).with_context(|| format!("Cannot open archive: {}", path.display()))?;
+        let mmap = unsafe { Mmap::map(&file) }.context("Failed to memory-map archive")?;
 
         let header = read_header(&mmap)?;
         validate_footer(&mmap)?;
@@ -588,8 +583,7 @@ impl ArchiveReader {
         if moff + 4 > mmap.len() {
             bail!("Manifest offset beyond file end");
         }
-        let manifest_len =
-            u32::from_le_bytes(mmap[moff..moff + 4].try_into()?) as usize;
+        let manifest_len = u32::from_le_bytes(mmap[moff..moff + 4].try_into()?) as usize;
         let manifest_start = moff + 4;
         let manifest_end = manifest_start + manifest_len;
         if manifest_end > mmap.len() {
@@ -639,8 +633,7 @@ impl ArchiveReader {
         if off + 4 > self.mmap.len() {
             bail!("Block {} offset beyond file end", block_id);
         }
-        let stored_len =
-            u32::from_le_bytes(self.mmap[off..off + 4].try_into()?) as usize;
+        let stored_len = u32::from_le_bytes(self.mmap[off..off + 4].try_into()?) as usize;
         let payload_start = off + 4;
         let payload_end = payload_start + stored_len;
         if payload_end > self.mmap.len() {
@@ -650,9 +643,7 @@ impl ArchiveReader {
 
         match block.codec.as_str() {
             "store" => Ok(compressed.to_vec()),
-            "zstd" => {
-                zstd::decode_all(compressed).context("Failed to decompress block")
-            }
+            "zstd" => zstd::decode_all(compressed).context("Failed to decompress block"),
             other => bail!("Unknown codec: {}", other),
         }
     }
@@ -735,10 +726,9 @@ impl FastArchiveReader {
     /// Open an archive with lazy manifest parsing. Only file entries and the
     /// path index are built; chunk/block tables are deferred.
     fn open(path: &std::path::Path) -> Result<Self> {
-        let file = File::open(path)
-            .with_context(|| format!("Cannot open archive: {}", path.display()))?;
-        let mmap = unsafe { Mmap::map(&file) }
-            .context("Failed to memory-map archive")?;
+        let file =
+            File::open(path).with_context(|| format!("Cannot open archive: {}", path.display()))?;
+        let mmap = unsafe { Mmap::map(&file) }.context("Failed to memory-map archive")?;
 
         let header = read_header(&mmap)?;
         validate_footer(&mmap)?;
@@ -747,8 +737,7 @@ impl FastArchiveReader {
         if moff + 4 > mmap.len() {
             bail!("Manifest offset beyond file end");
         }
-        let manifest_len =
-            u32::from_le_bytes(mmap[moff..moff + 4].try_into()?) as usize;
+        let manifest_len = u32::from_le_bytes(mmap[moff..moff + 4].try_into()?) as usize;
         let manifest_start = moff + 4;
         let manifest_end = manifest_start + manifest_len;
         if manifest_end > mmap.len() {
@@ -799,7 +788,10 @@ impl FastArchiveReader {
     }
 
     /// Read and decompress a single block from the mmap. Returns (raw_bytes, decompress_duration).
-    fn read_block(&self, block_id: u64) -> Result<(Vec<u8>, std::time::Duration, std::time::Duration)> {
+    fn read_block(
+        &self,
+        block_id: u64,
+    ) -> Result<(Vec<u8>, std::time::Duration, std::time::Duration)> {
         let blocks_idx = self.blocks_by_id.as_ref().expect("blocks not parsed");
         let block_idx = blocks_idx
             .get(&block_id)
@@ -812,8 +804,7 @@ impl FastArchiveReader {
         if off + 4 > self.mmap.len() {
             bail!("Block {} offset beyond file end", block_id);
         }
-        let stored_len =
-            u32::from_le_bytes(self.mmap[off..off + 4].try_into()?) as usize;
+        let stored_len = u32::from_le_bytes(self.mmap[off..off + 4].try_into()?) as usize;
         let payload_start = off + 4;
         let payload_end = payload_start + stored_len;
         if payload_end > self.mmap.len() {
@@ -883,7 +874,11 @@ impl FastArchiveReader {
             if end > block_data.len() {
                 bail!(
                     "Chunk {} slice {}..{} exceeds block {} size {}",
-                    cid, start, end, bid, block_data.len()
+                    cid,
+                    start,
+                    end,
+                    bid,
+                    block_data.len()
                 );
             }
             data_parts.extend_from_slice(&block_data[start..end]);
@@ -896,7 +891,9 @@ impl FastArchiveReader {
         if computed != expected_sha {
             bail!(
                 "Hash mismatch for {}: expected {}, got {}",
-                file_path, expected_sha, computed
+                file_path,
+                expected_sha,
+                computed
             );
         }
 
@@ -1006,8 +1003,7 @@ impl RemoteStats {
                 format_size(f.bytes)
             );
         }
-        let total_dur: std::time::Duration =
-            self.fetches.iter().map(|f| f.duration).sum();
+        let total_dur: std::time::Duration = self.fetches.iter().map(|f| f.duration).sum();
         eprintln!(
             "  {:20} : {:>7.1} ms",
             "total",
@@ -1039,15 +1035,15 @@ fn http_range_get(
     range_end: u64, // inclusive
 ) -> Result<(Vec<u8>, Option<u64>)> {
     let range_header = format!("bytes={}-{}", range_start, range_end);
-    let resp = match ureq::get(url)
-        .set("Range", &range_header)
-        .call()
-    {
+    let resp = match ureq::get(url).set("Range", &range_header).call() {
         Ok(r) => r,
         Err(ureq::Error::Status(code, _resp)) => {
             bail!(
                 "HTTP {} fetching range {}-{} from {}",
-                code, range_start, range_end, url
+                code,
+                range_start,
+                range_end,
+                url
             );
         }
         Err(e) => {
@@ -1078,11 +1074,21 @@ fn http_range_get(
         let start = range_start as usize;
         let end = (range_end as usize + 1).min(body.len());
         if start >= body.len() {
-            bail!("Requested range start {} beyond file size {}", start, body.len());
+            bail!(
+                "Requested range start {} beyond file size {}",
+                start,
+                body.len()
+            );
         }
         Ok((body[start..end].to_vec(), Some(len)))
     } else {
-        bail!("HTTP {} fetching range {}-{} from {}", status, range_start, range_end, url);
+        bail!(
+            "HTTP {} fetching range {}-{} from {}",
+            status,
+            range_start,
+            range_end,
+            url
+        );
     }
 }
 
@@ -1121,16 +1127,17 @@ impl RemoteReader {
         // We'll request the last 40 bytes using a suffix range.
         let t_footer = Instant::now();
         let range_header = "bytes=-40";
-        let resp = match ureq::get(url)
-            .set("Range", range_header)
-            .call()
-        {
+        let resp = match ureq::get(url).set("Range", range_header).call() {
             Ok(r) => r,
             Err(ureq::Error::Status(code, _)) => {
                 bail!("HTTP {} fetching footer from {}", code, url);
             }
             Err(e) => {
-                return Err(anyhow::anyhow!("HTTP request for footer failed: {}: {}", url, e));
+                return Err(anyhow::anyhow!(
+                    "HTTP request for footer failed: {}: {}",
+                    url,
+                    e
+                ));
             }
         };
 
@@ -1183,15 +1190,13 @@ impl RemoteReader {
         };
 
         let t_manifest = Instant::now();
-        let (manifest_region, _) =
-            http_range_get(url, manifest_offset, manifest_region_end)?;
+        let (manifest_region, _) = http_range_get(url, manifest_offset, manifest_region_end)?;
         let manifest_dur = t_manifest.elapsed();
 
         if manifest_region.len() < 4 {
             bail!("Manifest region too short");
         }
-        let manifest_len =
-            u32::from_le_bytes(manifest_region[0..4].try_into()?) as usize;
+        let manifest_len = u32::from_le_bytes(manifest_region[0..4].try_into()?) as usize;
         let manifest_start = 4;
         let manifest_end = manifest_start + manifest_len;
         if manifest_end > manifest_region.len() {
@@ -1231,8 +1236,7 @@ impl RemoteReader {
     /// Ensure chunk and block tables are parsed and indexed.
     fn ensure_chunks_and_blocks(&mut self) -> Result<()> {
         if self.manifest.chunks.is_none() {
-            let (chunks, _) =
-                decode_chunks(&self.manifest.payload, self.manifest.chunks_offset)?;
+            let (chunks, _) = decode_chunks(&self.manifest.payload, self.manifest.chunks_offset)?;
             let idx: HashMap<u64, usize> = chunks
                 .iter()
                 .enumerate()
@@ -1242,8 +1246,7 @@ impl RemoteReader {
             self.chunks_by_id = Some(idx);
         }
         if self.manifest.blocks.is_none() {
-            let (blocks, _) =
-                decode_blocks(&self.manifest.payload, self.manifest.blocks_offset)?;
+            let (blocks, _) = decode_blocks(&self.manifest.payload, self.manifest.blocks_offset)?;
             let idx: HashMap<u64, usize> = blocks
                 .iter()
                 .enumerate()
@@ -1343,7 +1346,10 @@ impl RemoteReader {
             if end > block_data.len() {
                 bail!(
                     "Chunk slice {}..{} exceeds block {} size {}",
-                    start, end, block_id, block_data.len()
+                    start,
+                    end,
+                    block_id,
+                    block_data.len()
                 );
             }
             data_parts.extend_from_slice(&block_data[start..end]);
@@ -1356,7 +1362,9 @@ impl RemoteReader {
         if computed != expected_sha {
             bail!(
                 "Hash mismatch for {}: expected {}, got {}",
-                file_path, expected_sha, computed
+                file_path,
+                expected_sha,
+                computed
             );
         }
 
@@ -1388,14 +1396,8 @@ fn cmd_get(archive: &str, file_path: &str, output: Option<PathBuf>, show_time: b
 
     let (data, timings) = reader.extract_file_timed(file_path)?;
 
-    let out_path = output.unwrap_or_else(|| {
-        PathBuf::from(
-            file_path
-                .rsplit('/')
-                .next()
-                .unwrap_or(file_path),
-        )
-    });
+    let out_path =
+        output.unwrap_or_else(|| PathBuf::from(file_path.rsplit('/').next().unwrap_or(file_path)));
 
     if let Some(parent) = out_path.parent() {
         if !parent.as_os_str().is_empty() {
@@ -1407,37 +1409,65 @@ fn cmd_get(archive: &str, file_path: &str, output: Option<PathBuf>, show_time: b
 
     let total_wall = total_start.elapsed().as_micros();
 
-    eprintln!("Extracted {} -> {} ({})", file_path, out_path.display(), format_size(data.len() as u64));
+    eprintln!(
+        "Extracted {} -> {} ({})",
+        file_path,
+        out_path.display(),
+        format_size(data.len() as u64)
+    );
 
     if show_time {
         eprintln!("--- timing breakdown ---");
-        eprintln!("  open + file index : {:>7} us  (mmap + header + file entries + path HashMap)", open_us);
-        eprintln!("  chunk/block parse : {:>7} us  (lazy — 0 if already cached)", timings.manifest_parse_us);
-        eprintln!("  file lookup       : {:>7} us  (HashMap path -> index)", timings.file_lookup_us);
-        eprintln!("  block read (mmap) : {:>7} us  (direct offset seek via mmap)", timings.block_read_us);
-        eprintln!("  decompression     : {:>7} us  (zstd decode)", timings.decompress_us);
-        eprintln!("  extraction total  : {:>7} us  (lookup + read + decompress + sha256)", timings.total_us);
-        eprintln!("  wall total        : {:>7} us  (open through write)", total_wall);
-        eprintln!("  total             : {:>7.2} ms", total_wall as f64 / 1000.0);
+        eprintln!(
+            "  open + file index : {:>7} us  (mmap + header + file entries + path HashMap)",
+            open_us
+        );
+        eprintln!(
+            "  chunk/block parse : {:>7} us  (lazy — 0 if already cached)",
+            timings.manifest_parse_us
+        );
+        eprintln!(
+            "  file lookup       : {:>7} us  (HashMap path -> index)",
+            timings.file_lookup_us
+        );
+        eprintln!(
+            "  block read (mmap) : {:>7} us  (direct offset seek via mmap)",
+            timings.block_read_us
+        );
+        eprintln!(
+            "  decompression     : {:>7} us  (zstd decode)",
+            timings.decompress_us
+        );
+        eprintln!(
+            "  extraction total  : {:>7} us  (lookup + read + decompress + sha256)",
+            timings.total_us
+        );
+        eprintln!(
+            "  wall total        : {:>7} us  (open through write)",
+            total_wall
+        );
+        eprintln!(
+            "  total             : {:>7.2} ms",
+            total_wall as f64 / 1000.0
+        );
     }
 
     Ok(())
 }
 
-fn cmd_get_remote(archive: &str, file_path: &str, output: Option<PathBuf>, show_time: bool) -> Result<()> {
+fn cmd_get_remote(
+    archive: &str,
+    file_path: &str,
+    output: Option<PathBuf>,
+    show_time: bool,
+) -> Result<()> {
     let url = resolve_url(archive)?;
     let mut reader = RemoteReader::open(&url)?;
 
     let data = reader.extract_file(file_path)?;
 
-    let out_path = output.unwrap_or_else(|| {
-        PathBuf::from(
-            file_path
-                .rsplit('/')
-                .next()
-                .unwrap_or(file_path),
-        )
-    });
+    let out_path =
+        output.unwrap_or_else(|| PathBuf::from(file_path.rsplit('/').next().unwrap_or(file_path)));
 
     if let Some(parent) = out_path.parent() {
         if !parent.as_os_str().is_empty() {
@@ -1479,7 +1509,12 @@ fn cmd_list(archive: &str) -> Result<()> {
 
     for entry in &reader.manifest.files {
         let size_str = format_size(entry.size);
-        println!("{:>width$}  {}", size_str, entry.path, width = max_size_width);
+        println!(
+            "{:>width$}  {}",
+            size_str,
+            entry.path,
+            width = max_size_width
+        );
     }
     println!(
         "\n{} files, {} total",
@@ -1503,7 +1538,12 @@ fn cmd_list_remote(archive: &str) -> Result<()> {
 
     for entry in &reader.manifest.files {
         let size_str = format_size(entry.size);
-        println!("{:>width$}  {}", size_str, entry.path, width = max_size_width);
+        println!(
+            "{:>width$}  {}",
+            size_str,
+            entry.path,
+            width = max_size_width
+        );
     }
     println!(
         "\n{} files, {} total",
@@ -1542,7 +1582,12 @@ fn cmd_extract_remote(archive: &str, output_dir: Option<PathBuf>) -> Result<()> 
 
     let out_dir = output_dir.unwrap_or_else(|| PathBuf::from("."));
     let total = reader.manifest.files.len();
-    let paths: Vec<String> = reader.manifest.files.iter().map(|f| f.path.clone()).collect();
+    let paths: Vec<String> = reader
+        .manifest
+        .files
+        .iter()
+        .map(|f| f.path.clone())
+        .collect();
 
     for (i, path) in paths.iter().enumerate() {
         let data = reader.extract_file(path)?;
@@ -1643,10 +1688,8 @@ const VERSION_MAJOR: u32 = 0;
 const VERSION_MINOR: u32 = 1;
 
 const INCOMPRESSIBLE_EXTENSIONS: &[&str] = &[
-    ".jpg", ".jpeg", ".png", ".gif", ".webp", ".avif",
-    ".mp4", ".mkv", ".avi", ".mov", ".webm",
-    ".mp3", ".aac", ".ogg", ".flac", ".opus",
-    ".zip", ".gz", ".bz2", ".xz", ".zst", ".7z", ".rar",
+    ".jpg", ".jpeg", ".png", ".gif", ".webp", ".avif", ".mp4", ".mkv", ".avi", ".mov", ".webm",
+    ".mp3", ".aac", ".ogg", ".flac", ".opus", ".zip", ".gz", ".bz2", ".xz", ".zst", ".7z", ".rar",
     ".woff", ".woff2", ".br",
 ];
 
@@ -1737,7 +1780,7 @@ struct PackFileEntry {
     size: u64,
     mode: u64,
     mtime_ns: u64,
-    sha256: String,       // hex
+    sha256: String, // hex
     chunk_refs: Vec<u64>,
     codec_hint: Option<String>,
     pack_id: Option<i64>,
@@ -1757,7 +1800,7 @@ struct PackBlockRecord {
     codec: String,
     compressed_size: u64,
     uncompressed_size: u64,
-    checksum: String,     // 16-char hex
+    checksum: String, // 16-char hex
 }
 
 fn build_string_table(paths: &[String]) -> (Vec<String>, Vec<(usize, usize)>) {
@@ -1992,11 +2035,7 @@ fn write_pack_header<W: Write>(
     Ok(())
 }
 
-fn write_pack_footer<W: Write>(
-    w: &mut W,
-    manifest_offset: u64,
-    index_offset: u64,
-) -> Result<()> {
+fn write_pack_footer<W: Write>(w: &mut W, manifest_offset: u64, index_offset: u64) -> Result<()> {
     let flags: u64 = 0;
     let checksum: u64 = 0;
 
@@ -2172,8 +2211,8 @@ fn cmd_pack(input_dir: &Path, output_path: &Path) -> Result<()> {
 
     // Step 3b: Chunk and compress large files
     for (li, (entry, classification)) in large_files.iter().enumerate() {
-        let data = fs::read(&entry.full_path)
-            .with_context(|| format!("reading {}", entry.rel_path))?;
+        let data =
+            fs::read(&entry.full_path).with_context(|| format!("reading {}", entry.rel_path))?;
 
         let mut hasher = Sha256::new();
         hasher.update(&data);
@@ -2247,8 +2286,8 @@ fn cmd_pack(input_dir: &Path, output_path: &Path) -> Result<()> {
     }
 
     // Step 4: Write archive
-    let out_file = File::create(output_path)
-        .with_context(|| format!("creating {}", output_path.display()))?;
+    let out_file =
+        File::create(output_path).with_context(|| format!("creating {}", output_path.display()))?;
     let mut w = BufWriter::new(out_file);
 
     // Placeholder header (80 zero bytes)

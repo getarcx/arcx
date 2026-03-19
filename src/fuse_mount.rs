@@ -8,7 +8,7 @@ use fuser::{
     FileAttr, FileType, Filesystem, MountOption, ReplyAttr, ReplyData, ReplyDirectory, ReplyEntry,
     ReplyOpen, Request,
 };
-use libc::{ENOENT, ENOTDIR, EISDIR};
+use libc::{EISDIR, ENOENT, ENOTDIR};
 use std::collections::HashMap;
 use std::ffi::OsStr;
 use std::path::Path;
@@ -84,13 +84,12 @@ impl InodeTable {
             let mut parent_ino: u64 = 1;
             for i in 0..components.len() - 1 {
                 let dir_name = components[i];
-                let existing_child = if let Some(InodeEntry::Dir { children }) =
-                    table.entries.get(&parent_ino)
-                {
-                    children.get(dir_name).copied()
-                } else {
-                    None
-                };
+                let existing_child =
+                    if let Some(InodeEntry::Dir { children }) = table.entries.get(&parent_ino) {
+                        children.get(dir_name).copied()
+                    } else {
+                        None
+                    };
 
                 if let Some(child_ino) = existing_child {
                     parent_ino = child_ino;
@@ -125,9 +124,7 @@ impl InodeTable {
                     table.attrs.insert(new_ino, dir_attr);
 
                     // Add to parent
-                    if let Some(InodeEntry::Dir { children }) =
-                        table.entries.get_mut(&parent_ino)
-                    {
+                    if let Some(InodeEntry::Dir { children }) = table.entries.get_mut(&parent_ino) {
                         children.insert(dir_name.to_string(), new_ino);
                     }
 
@@ -256,12 +253,7 @@ impl ArcxFs {
 
     /// Read bytes from a file entry at the given offset and size.
     /// Decompresses only the needed blocks on demand.
-    fn read_file_range(
-        &self,
-        file_idx: usize,
-        offset: u64,
-        size: u32,
-    ) -> Result<Vec<u8>, i32> {
+    fn read_file_range(&self, file_idx: usize, offset: u64, size: u32) -> Result<Vec<u8>, i32> {
         let entry = &self.reader.manifest.files[file_idx];
 
         if offset >= entry.size {
@@ -324,10 +316,7 @@ impl ArcxFs {
         }
 
         // Decompress the block
-        let data = self
-            .reader
-            .read_block(block_id)
-            .map_err(|_| libc::EIO)?;
+        let data = self.reader.read_block(block_id).map_err(|_| libc::EIO)?;
 
         let mut cache = self.block_cache.lock().unwrap();
         cache.insert(block_id, data.clone());
