@@ -89,6 +89,7 @@ enum Commands {
 // ---------------------------------------------------------------------------
 
 #[derive(Debug)]
+#[allow(dead_code)]
 pub(crate) struct Header {
     manifest_offset: u64,
     data_offset: u64,
@@ -100,6 +101,7 @@ pub(crate) struct Header {
 }
 
 #[derive(Debug)]
+#[allow(dead_code)]
 pub(crate) struct Config {
     chunk_size: u64,
     small_file_threshold: u64,
@@ -109,6 +111,7 @@ pub(crate) struct Config {
 }
 
 #[derive(Debug)]
+#[allow(dead_code)]
 pub(crate) struct FileEntry {
     pub(crate) file_id: u64,
     pub(crate) path: String,
@@ -120,6 +123,7 @@ pub(crate) struct FileEntry {
 }
 
 #[derive(Debug)]
+#[allow(dead_code)]
 pub(crate) struct ChunkEntry {
     pub(crate) chunk_id: u64,
     pub(crate) file_id: u64,
@@ -129,6 +133,7 @@ pub(crate) struct ChunkEntry {
 }
 
 #[derive(Debug)]
+#[allow(dead_code)]
 pub(crate) struct BlockEntry {
     pub(crate) block_id: u64,
     pub(crate) codec: String,
@@ -670,9 +675,9 @@ impl ArchiveReader {
             let chunk = &self.manifest.chunks[*chunk_idx];
             let bid = chunk.block_id;
 
-            if !block_cache.contains_key(&bid) {
+            if let std::collections::hash_map::Entry::Vacant(e) = block_cache.entry(bid) {
                 let block_data = self.read_block(bid)?;
-                block_cache.insert(bid, block_data);
+                e.insert(block_data);
             }
 
             let block_data = &block_cache[&bid];
@@ -865,11 +870,11 @@ impl FastArchiveReader {
             let chunk = &chunks[*chunk_idx];
             let bid = chunk.block_id;
 
-            if !block_cache.contains_key(&bid) {
+            if let std::collections::hash_map::Entry::Vacant(e) = block_cache.entry(bid) {
                 let (block_data, read_dur, decomp_dur) = self.read_block(bid)?;
                 total_block_read += read_dur;
                 total_decompress += decomp_dur;
-                block_cache.insert(bid, block_data);
+                e.insert(block_data);
             }
 
             let block_data = &block_cache[&bid];
@@ -907,6 +912,7 @@ impl FastArchiveReader {
     }
 
     /// Extract a file without timing (convenience wrapper).
+    #[allow(dead_code)]
     fn extract_file(&mut self, file_path: &str) -> Result<Vec<u8>> {
         let (data, _) = self.extract_file_timed(file_path)?;
         Ok(data)
@@ -941,8 +947,8 @@ fn is_remote_url(s: &str) -> bool {
 /// Convert `s3://bucket/key` to `https://bucket.s3.amazonaws.com/key`.
 /// HTTP(S) URLs pass through unchanged.
 fn resolve_url(s: &str) -> Result<String> {
-    if s.starts_with("s3://") {
-        let rest = &s[5..]; // strip "s3://"
+    if let Some(rest) = s.strip_prefix("s3://") {
+        // strip "s3://"
         let slash = rest
             .find('/')
             .with_context(|| format!("Invalid S3 URL (no key): {}", s))?;
@@ -1038,7 +1044,7 @@ fn http_range_get(
         .call()
     {
         Ok(r) => r,
-        Err(ureq::Error::Status(code, resp)) => {
+        Err(ureq::Error::Status(code, _resp)) => {
             bail!(
                 "HTTP {} fetching range {}-{} from {}",
                 code, range_start, range_end, url
@@ -1287,6 +1293,7 @@ impl RemoteReader {
     }
 
     /// Extract a single file from the remote archive.
+    #[allow(dead_code)]
     fn extract_file(&mut self, file_path: &str) -> Result<Vec<u8>> {
         self.ensure_chunks_and_blocks()?;
 
@@ -1357,6 +1364,7 @@ impl RemoteReader {
     }
 
     /// Get the fully-parsed manifest (parses chunks + blocks if needed).
+    #[allow(dead_code)]
     fn full_manifest(&mut self) -> Result<&LazyManifest> {
         self.ensure_chunks_and_blocks()?;
         Ok(&self.manifest)
@@ -1483,7 +1491,7 @@ fn cmd_list(archive: &str) -> Result<()> {
 
 fn cmd_list_remote(archive: &str) -> Result<()> {
     let url = resolve_url(archive)?;
-    let mut reader = RemoteReader::open(&url)?;
+    let reader = RemoteReader::open(&url)?;
 
     let max_size_width = reader
         .manifest
