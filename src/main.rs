@@ -1028,6 +1028,25 @@ impl RemoteStats {
     }
 }
 
+/// Resolve redirects by making a HEAD request and following redirects.
+/// Returns the final URL after all redirects.
+fn resolve_redirects(url: &str) -> Result<String> {
+    // ureq follows redirects automatically; we issue a small Range GET
+    // and capture the final URL from the response.
+    let resp = match ureq::get(url)
+        .set("Range", "bytes=0-0")
+        .call()
+    {
+        Ok(r) => r,
+        Err(ureq::Error::Status(_code, r)) => {
+            // Even an error response reveals the final URL after redirects
+            return Ok(r.get_url().to_string());
+        }
+        Err(_) => return Ok(url.to_string()),
+    };
+    Ok(resp.get_url().to_string())
+}
+
 /// Fetch a byte range from a URL. Returns (body_bytes, content-length of full resource if available).
 fn http_range_get(
     url: &str,
@@ -1119,51 +1138,35 @@ struct RemoteReader {
 
 impl RemoteReader {
     /// Open a remote archive. Performs 2 HTTP requests: footer + manifest.
+    /// Resolves redirects first so Range requests go to the final CDN URL.
     fn open(url: &str) -> Result<Self> {
         let mut stats = RemoteStats::new();
 
-        // --- Fetch footer (last 40 bytes) ---
-        // We need to know the file size, so request a range from the end.
-        // We'll request the last 40 bytes using a suffix range.
+        // --- Resolve redirects ---
+        // Some hosts (e.g. GitHub releases) redirect to a CDN.
+        // The redirect server may not support Range requests (HTTP 501),
+        // but the final CDN URL does. Resolve the redirect chain first.
+        let resolved = resolve_redirects(url).unwrap_or_else(|_| url.to_string());
+        let url = &resolved;
+
+        // --- Get archive size via HEAD request ---
         let t_footer = Instant::now();
-        let range_header = "bytes=-40";
-        let resp = match ureq::get(url).set("Range", range_header).call() {
-            Ok(r) => r,
-            Err(ureq::Error::Status(code, _)) => {
-                bail!("HTTP {} fetching footer from {}", code, url);
-            }
-            Err(e) => {
-                return Err(anyhow::anyhow!(
-                    "HTTP request for footer failed: {}: {}",
-                    url,
-                    e
-                ));
-            }
-        };
+        let head_resp = ureq::head(url).call().map_err(|e| {
+            anyhow::anyhow!("HEAD request failed for {}: {}", url, e)
+        })?;
+        let total_size: u64 = head_resp
+            .header("Content-Length")
+            .and_then(|s| s.parse().ok())
+            .unwrap_or(0);
+        if total_size < FOOTER_SIZE as u64 {
+            bail!("Archive too small: {} bytes", total_size);
+        }
+        stats.archive_size = total_size;
 
-        let status = resp.status();
-
-        let archive_size = resp
-            .header("Content-Range")
-            .and_then(|cr| cr.rsplit('/').next())
-            .and_then(|s| s.parse::<u64>().ok());
-
-        let footer_bytes = if status == 206 {
-            let mut body = Vec::new();
-            resp.into_reader().read_to_end(&mut body)?;
-            body
-        } else if status == 200 {
-            eprintln!("WARNING: Server does not support Range requests. Downloading full archive.");
-            let mut body = Vec::new();
-            resp.into_reader().read_to_end(&mut body)?;
-            let len = body.len();
-            if len < FOOTER_SIZE {
-                bail!("Archive too small: {} bytes", len);
-            }
-            body[len - FOOTER_SIZE..].to_vec()
-        } else {
-            bail!("HTTP {} fetching footer from {}", status, url);
-        };
+        // --- Fetch footer (last 40 bytes) using exact byte range ---
+        let footer_start = total_size - FOOTER_SIZE as u64;
+        let footer_end = total_size - 1;
+        let (footer_bytes, _) = http_range_get(url, footer_start, footer_end)?;
 
         let footer_dur = t_footer.elapsed();
         stats.fetches.push(FetchTiming {
@@ -1171,9 +1174,6 @@ impl RemoteReader {
             bytes: footer_bytes.len() as u64,
             duration: footer_dur,
         });
-
-        let total_size = archive_size.unwrap_or(0);
-        stats.archive_size = total_size;
 
         let (manifest_offset, _index_offset) = parse_footer_bytes(&footer_bytes)?;
 
@@ -2238,7 +2238,7 @@ fn cmd_pack(input_dir: &Path, output_path: &Path) -> Result<()> {
             chunks.push(PackChunkRecord {
                 chunk_id,
                 file_id,
-                file_offset: offset as u64,
+                file_offset: 0, // each large-file chunk gets its own block; offset within block is 0
                 uncompressed_size: chunk_data.len() as u64,
                 block_id,
             });
