@@ -158,6 +158,40 @@ nav .nav-links a:hover {
   cursor: text;
 }
 
+.btn-pill {
+  display: inline-block;
+  padding: 0.7rem 2rem;
+  border-radius: 999px;
+  font-weight: 600;
+  font-size: 0.95rem;
+  cursor: pointer;
+  transition: all 0.2s;
+  text-decoration: none;
+  border: 2px solid var(--accent);
+  font-family: inherit;
+}
+
+.btn-pill-primary {
+  background: var(--accent);
+  color: #fff;
+}
+
+.btn-pill-primary:hover {
+  background: var(--accent-hover);
+  border-color: var(--accent-hover);
+}
+
+.btn-pill-outline {
+  background: transparent;
+  color: var(--accent);
+}
+
+.btn-pill-outline:hover {
+  background: var(--accent);
+  color: #fff;
+  text-decoration: none;
+}
+
 /* ── SECTIONS ── */
 section {
   padding: 5rem 0;
@@ -251,6 +285,13 @@ section.alt-bg {
   line-height: 1.4;
 }
 
+.stat-sublabel {
+  font-size: 0.75rem;
+  color: var(--text-muted);
+  margin-top: 0.3rem;
+  font-family: "SF Mono", "Cascadia Code", Consolas, monospace;
+}
+
 /* ── TABLES ── */
 .bench-table-wrap {
   overflow-x: auto;
@@ -309,6 +350,22 @@ tbody tr:last-child td {
   font-size: 0.8rem;
   color: var(--text-muted);
   margin-top: 1rem;
+}
+
+.methodology-callout {
+  background: var(--bg-card);
+  border: 1px solid var(--border);
+  border-left: 3px solid var(--accent);
+  border-radius: 6px;
+  padding: 1rem 1.4rem;
+  margin-top: 1.2rem;
+  font-size: 0.88rem;
+  color: var(--text-secondary);
+  line-height: 1.6;
+}
+
+.methodology-callout strong {
+  color: var(--accent);
 }
 
 /* ── HOW IT WORKS ── */
@@ -479,10 +536,14 @@ footer a {
 <section class="hero">
   <div class="container">
     <h1>Retrieve a file from a 10,000-file archive in 7&nbsp;milliseconds.</h1>
-    <p class="subline">Fast to create. Fast to query. No full decompression required.</p>
+    <p class="subline">Fast to create. Fast to query. No full archive decompression required.</p>
     <div class="hero-ctas">
       <a href="https://github.com/getarcx/arcx" class="btn-primary">View on GitHub</a>
       <code class="code-cta">cargo install arcx</code>
+    </div>
+    <div class="hero-ctas" style="margin-top: 1rem;">
+      <button class="btn-pill btn-pill-primary" onclick="navigator.clipboard.writeText('cargo install arcx').then(function(){this.textContent='Copied!';var b=this;setTimeout(function(){b.textContent='Install with Cargo'},1500)}.bind(this))">Install with Cargo</button>
+      <a href="#benchmarks" class="btn-pill btn-pill-outline">View Benchmarks</a>
     </div>
   </div>
 </section>
@@ -495,7 +556,7 @@ footer a {
     <div class="problem-grid">
       <div class="problem-card">
         <h3>TAR + ZSTD</h3>
-        <p>Strong cross-file compression, but extracting one file means reading the entire archive from the beginning.</p>
+        <p>Strong cross-file compression, but TAR+ZSTD typically requires reading and decompressing the archive sequentially to reach the target file.</p>
       </div>
       <div class="problem-card">
         <h3>ZIP</h3>
@@ -514,7 +575,7 @@ footer a {
     <div class="stats-grid">
       <div class="stat-card">
         <div class="stat-number mono">7ms</div>
-        <div class="stat-label">Selective file retrieval from a sealed archive</div>
+        <div class="stat-label">Selective file retrieval from a completed archive</div>
       </div>
       <div class="stat-card">
         <div class="stat-number mono">200x</div>
@@ -527,6 +588,7 @@ footer a {
       <div class="stat-card">
         <div class="stat-number mono">3</div>
         <div class="stat-label">I/O requests for remote selective access</div>
+        <div class="stat-sublabel">footer + manifest + one block</div>
       </div>
     </div>
   </div>
@@ -537,7 +599,7 @@ footer a {
   <div class="container">
     <p class="section-label">Benchmarks</p>
     <h2 class="section-title">Bytes read to extract one file</h2>
-    <p class="section-subtitle">How much data does the format actually read from disk to retrieve a single file? ARCX reads the manifest plus one compressed block. TAR+ZSTD reads the entire archive.</p>
+    <p class="section-subtitle">How much data does the format actually read from disk to retrieve a single file? ARCX reads the manifest plus one compressed block. TAR+ZSTD typically requires reading and decompressing the archive sequentially to reach the target file.</p>
     <div class="table-card">
       <div class="bench-table-wrap">
         <table>
@@ -590,7 +652,9 @@ footer a {
         </table>
       </div>
     </div>
-    <p class="table-note">Cold-cache medians (3 runs). Intel i7, Windows 11. ZIP reads less because it has no cross-file compression. ARCX combines TAR+ZSTD compression with direct file access.</p>
+    <div class="methodology-callout">
+      <strong>Methodology:</strong> Cold-cache medians, 3 runs, Intel i7, Windows 11. ZIP reads less because it has no cross-file compression. ARCX combines TAR+ZSTD-class compression with direct file access.
+    </div>
   </div>
 </section>
 
@@ -617,6 +681,7 @@ footer a {
         <p>Decompress only the single block containing the target file. Extract the file data from the decompressed output.</p>
       </div>
     </div>
+    <p class="section-subtitle" style="margin-top: 1rem;">ARCX stores the index at the end and data in independently decompressible blocks.</p>
     <div class="diagram-box">
 <pre><span class="ac">Archive Layout</span>
 
