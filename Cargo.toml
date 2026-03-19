@@ -1,10 +1,10 @@
 [package]
 name = "arcx"
-version = "0.1.0"
+version = "0.2.0"
 edition = "2021"
 description = "A compressed archive format with instant file retrieval"
 license = "Apache-2.0"
-repository = "https://github.com/arcx-archive/arcx"
+repository = "https://github.com/getarcx/arcx"
 readme = "README.md"
 keywords = ["archive", "compression", "zstd", "selective-extraction"]
 categories = ["command-line-utilities", "compression", "filesystem"]
@@ -22,3 +22,4 @@ anyhow = "1"
 hex = "0.4"
 walkdir = "2"
 crc32fast = "1"
+ureq = "2"
