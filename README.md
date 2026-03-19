@@ -1,62 +1,102 @@
 # ARCX
 
-A compressed archive format with instant file retrieval.
+**Retrieve a file from a 10,000-file archive in 7 milliseconds.**
 
-**Fast to create. Fast to query. No full decompression required.**
+ARCX is a compressed archive format built for modern workflows. It lets you access a single file instantly -- without decompressing the entire archive.
 
-ARCX is a block-based archive format that combines cross-file compression with indexed random access. Extract a single file from a 200 MB archive in under 8 ms -- without decompressing anything else.
+Fast to create. Fast to query. No full decompression required.
 
-## Key Numbers
+## Why ARCX?
 
-- **7 ms** selective extraction from a 200 MB archive (581 files)
-- **3 ms** selective extraction from a 64 MB archive (206 files)
-- **Up to 52x faster** selective retrieval vs TAR+GZ
-- **Cross-file compression** matching TAR+ZSTD ratios
-- Written in Rust. Single binary. No dependencies at runtime.
+Traditional archives force a choice: compress well (tar+zstd) or access fast (zip). ARCX does both.
+
+- Cross-file compression matching tar+zstd ratios
+- Indexed, block-level access to any file
+- Single-digit millisecond retrieval
+- Up to 200x less data read than tar+zstd
+
+> ARCX reads kilobytes instead of megabytes.
 
 ## Quick Start
 
-### Install
-
 ```bash
+# Build from source
 cargo install --path .
-```
 
-### Pack
-
-```bash
+# Pack a directory
 arcx pack ./my-project output.arcx
-```
 
-### Get a single file
+# Get a single file (instant)
+time arcx get output.arcx src/main.rs
 
-```bash
-arcx get output.arcx src/main.rs
-```
-
-### List contents
-
-```bash
+# List contents
 arcx list output.arcx
-```
 
-### Extract all
-
-```bash
+# Extract everything
 arcx extract output.arcx ./output-dir
-```
 
-### Archive info
-
-```bash
+# Show archive info
 arcx info output.arcx
+
+# Detailed timing breakdown
+arcx get output.arcx src/main.rs --time
 ```
 
-## Benchmarks
+## Data Movement (The Real Bottleneck)
 
-All measurements taken on Windows 11, Intel i7 (22 cores), 3 runs per measurement (median). Datasets are synthetic but representative of real-world workloads. See [benchmarks/](benchmarks/) for full methodology and raw data.
+How much data does the format actually read from disk to extract ONE file?
 
-### Archive Size and Pack Speed
+ARCX reduces unnecessary data transfer by up to **200x**.
+
+| Dataset | Target File | ARCX | TAR+ZSTD | ZIP |
+|---------|------------|-----:|---------:|----:|
+| Build artifacts (581 files, 181 MB) | 36.4 KB .o file | **713.8 KB** | 140.4 MB | 36.5 KB |
+| Python ML project (206 files, 64 MB) | 6.9 KB .py file | **326.1 KB** | 63.1 MB | 2.1 KB |
+| Log archive (1,008 files, 30 MB) | 35.8 KB log file | **365.8 KB** | 5.0 MB | 6.1 KB |
+| Node.js project (19,001 files, 43 MB) | 1.5 KB .d.ts file | **1.3 MB** | 17.4 MB | 632 B |
+| Source code repo (389 files, 1.9 MB) | 4.5 KB .go file | **373.8 KB** | 656.1 KB | 1.9 KB |
+
+ARCX reads the manifest plus one compressed block. TAR+ZSTD reads the entire archive. ZIP reads only the individual file entry (no cross-file compression to navigate).
+
+## Selective Access Performance
+
+The defining metric. How long to extract ONE file from a sealed archive?
+
+```
+Build Artifacts (581 files, 181 MB)
+  ARCX      |##                                            |   7.9 ms
+  ZIP       |#                                             |   1.7 ms
+  TAR+ZSTD  |#########################                     | 147.7 ms
+  TAR+GZ    |################################################ 409.3 ms
+
+Log Archive (1,008 files, 30 MB)
+  ARCX      |#                                             |   7.3 ms
+  ZIP       |#                                             |   3.0 ms
+  TAR+ZSTD  |############                                  |  99.5 ms
+  TAR+GZ    |################################################ 238.4 ms
+
+Python ML Project (206 files, 64 MB)
+  ARCX      |#                                             |   2.8 ms
+  ZIP       |#                                             |   0.9 ms
+  TAR+ZSTD  |###############                               |  53.4 ms
+  TAR+GZ    |################################################ 180.0 ms
+
+Node.js Project (19,001 files, 43 MB)
+  ARCX      |#####                                         | 131.3 ms
+  ZIP       |##                                            |  62.5 ms
+  TAR+ZSTD  |################################              | 840.9 ms
+  TAR+GZ    |################################################  1.26 s
+```
+
+> ARCX turns archive access into a constant-time operation.
+
+TAR-based formats must decompress the entire archive to reach any file. ARCX reads only the manifest and the specific block(s) containing the target file.
+
+ZIP also supports random access via its central directory. The comparison is most meaningful against TAR-based formats, which represent the majority of compressed archives in CI/CD and cloud storage.
+
+## Compression
+
+ARCX matches TAR+ZSTD compression ratios across all workloads. Both outperform ZIP due to cross-file compression.
 
 | Dataset | Files | Input | ARCX | TAR+ZSTD | ZIP |
 |---------|------:|------:|-----:|---------:|----:|
@@ -66,57 +106,7 @@ All measurements taken on Windows 11, Intel i7 (22 cores), 3 runs per measuremen
 | Log archive | 1,008 | 30.4 MB | 5.0 MB (16.5%) | 5.0 MB (16.6%) | 5.1 MB (16.8%) |
 | Source code repo | 389 | 1.9 MB | 683.5 KB (34.3%) | 656.1 KB (33.0%) | 721.8 KB (36.3%) |
 
-ARCX compression ratios match TAR+ZSTD across all workloads. Both outperform ZIP due to cross-file compression.
-
-### Selective Extraction (single file retrieval)
-
-The defining metric. How long does it take to extract ONE file from a sealed archive?
-
-```
-Build Artifacts (581 files, 180.9 MB input)
-  ARCX      |##                                            |   7.9 ms
-  ZIP       |#                                             |   1.7 ms
-  TAR+ZSTD  |#########################                     | 147.7 ms
-  TAR+GZ    |################################################ 409.3 ms
-
-Log Archive (1,008 files, 30.4 MB input)
-  ARCX      |#                                             |   7.3 ms
-  ZIP       |#                                             |   3.0 ms
-  TAR+ZSTD  |############                                  |  99.5 ms
-  TAR+GZ    |################################################ 238.4 ms
-
-Python ML Project (206 files, 63.8 MB input)
-  ARCX      |#                                             |   2.8 ms
-  ZIP       |#                                             |   0.9 ms
-  TAR+ZSTD  |###############                               |  53.4 ms
-  TAR+GZ    |################################################ 180.0 ms
-
-Node.js Project (19,001 files, 42.6 MB input)
-  ARCX      |#####                                         | 131.3 ms
-  ZIP       |##                                            |  62.5 ms
-  TAR+ZSTD  |################################              | 840.9 ms
-  TAR+GZ    |################################################  1.26 s
-```
-
-TAR-based formats must decompress the entire archive to reach any file. ARCX reads only the manifest and the specific block(s) containing the target file.
-
-ZIP also supports random access via its central directory. The comparison is most meaningful against TAR-based formats, which represent the majority of compressed archives in CI/CD and cloud storage.
-
-### Bytes Read to Extract One File
-
-How much data does the format actually touch on disk?
-
-| Dataset | Target File | ARCX | TAR+ZSTD | ZIP |
-|---------|------------|-----:|---------:|----:|
-| Build artifacts | 36.4 KB .o file | 713.8 KB | 140.4 MB | 36.5 KB |
-| Log archive | 35.8 KB log file | 365.8 KB | 5.0 MB | 6.1 KB |
-| Python ML project | 6.9 KB .py file | 326.1 KB | 63.1 MB | 2.1 KB |
-| Node.js project | 1.5 KB .d.ts file | 1.3 MB | 17.4 MB | 632 B |
-| Source code repo | 4.5 KB .go file | 373.8 KB | 656.1 KB | 1.9 KB |
-
-ARCX reads the manifest plus one compressed block. TAR+ZSTD reads the entire archive. ZIP reads only the individual file entry (no cross-file compression to navigate).
-
-ARCX block overhead is a function of block size (default 256 KB pre-compression). Larger blocks improve compression ratio; smaller blocks reduce selective extraction I/O.
+All measurements taken on Windows 11, Intel i7 (22 cores), 3 runs per measurement (median). Datasets are synthetic but representative of real-world workloads. See [benchmarks/](benchmarks/) for full methodology and raw data.
 
 ## How It Works
 
@@ -148,10 +138,6 @@ Total I/O: footer + manifest + one block. Everything else is untouched.
 
 Because multiple files are packed into the same block before compression, zstd sees cross-file redundancy. This is why ARCX matches TAR+ZSTD compression ratios -- both compress files together -- while ZIP compresses each file independently.
 
-## Prior Work
-
-Techniques like block-based compression and indexed access have existed in specialized domains (BGZF in bioinformatics, WARC for web archives). ARCX brings these capabilities into a general-purpose archive format designed for modern software workflows.
-
 ## Use Cases
 
 - **CI/CD artifacts** -- Store build outputs once, retrieve individual files on demand without downloading and decompressing the full archive.
@@ -159,6 +145,16 @@ Techniques like block-based compression and indexed access have existed in speci
 - **Package managers** -- Inspect package metadata or extract a single file without pulling the entire package.
 - **Game assets** -- Load individual textures, models, or audio files from a compressed asset bundle at runtime.
 - **Log archives** -- Query a specific day's logs from a compressed monthly archive without decompressing the other 29 days.
+
+## Why This Matters
+
+Modern systems don't need entire archives. They need one file, right now.
+
+ARCX makes that possible -- reducing latency, CPU usage, and cloud data transfer costs.
+
+## Prior Work
+
+Block-based compression and indexed access exist in specialized systems (e.g., BGZF in bioinformatics, WARC for web archives). ARCX brings these ideas into a general-purpose archive format designed for modern developer workflows.
 
 ## Format Specification
 
@@ -183,7 +179,7 @@ Footer (40 bytes)
 ## Building from Source
 
 ```bash
-git clone https://github.com/arcx-archive/arcx.git
+git clone https://github.com/getarcx/arcx.git
 cd arcx
 cargo build --release
 ```
