@@ -1,0 +1,24 @@
+[package]
+name = "arcx"
+version = "0.1.0"
+edition = "2021"
+description = "A compressed archive format with instant file retrieval"
+license = "Apache-2.0"
+repository = "https://github.com/arcx-archive/arcx"
+readme = "README.md"
+keywords = ["archive", "compression", "zstd", "selective-extraction"]
+categories = ["command-line-utilities", "compression", "filesystem"]
+
+[[bin]]
+name = "arcx"
+path = "src/main.rs"
+
+[dependencies]
+clap = { version = "4", features = ["derive"] }
+zstd = "0.13"
+memmap2 = "0.9"
+sha2 = "0.10"
+anyhow = "1"
+hex = "0.4"
+walkdir = "2"
+crc32fast = "1"
