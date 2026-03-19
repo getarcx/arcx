@@ -1033,10 +1033,7 @@ impl RemoteStats {
 fn resolve_redirects(url: &str) -> Result<String> {
     // ureq follows redirects automatically; we issue a small Range GET
     // and capture the final URL from the response.
-    let resp = match ureq::get(url)
-        .set("Range", "bytes=0-0")
-        .call()
-    {
+    let resp = match ureq::get(url).set("Range", "bytes=0-0").call() {
         Ok(r) => r,
         Err(ureq::Error::Status(_code, r)) => {
             // Even an error response reveals the final URL after redirects
@@ -1151,9 +1148,9 @@ impl RemoteReader {
 
         // --- Get archive size via HEAD request ---
         let t_footer = Instant::now();
-        let head_resp = ureq::head(url).call().map_err(|e| {
-            anyhow::anyhow!("HEAD request failed for {}: {}", url, e)
-        })?;
+        let head_resp = ureq::head(url)
+            .call()
+            .map_err(|e| anyhow::anyhow!("HEAD request failed for {}: {}", url, e))?;
         let total_size: u64 = head_resp
             .header("Content-Length")
             .and_then(|s| s.parse().ok())
