@@ -8,6 +8,9 @@ use std::io::{BufWriter, Read as _, Seek, SeekFrom, Write};
 use std::path::{Path, PathBuf};
 use std::time::{Instant, SystemTime, UNIX_EPOCH};
 
+#[cfg(feature = "fuse")]
+mod fuse_mount;
+
 // ---------------------------------------------------------------------------
 // Constants
 // ---------------------------------------------------------------------------
@@ -68,6 +71,17 @@ enum Commands {
         /// Output .arcx archive path
         output: PathBuf,
     },
+    /// Mount an archive as a read-only FUSE filesystem
+    #[cfg(feature = "fuse")]
+    Mount {
+        /// Path to the .arcx archive
+        archive: String,
+        /// Mountpoint directory
+        mountpoint: PathBuf,
+        /// Max number of decompressed blocks to cache (default: 64)
+        #[arg(long, default_value = "64")]
+        cache_size: usize,
+    },
 }
 
 // ---------------------------------------------------------------------------
@@ -75,7 +89,7 @@ enum Commands {
 // ---------------------------------------------------------------------------
 
 #[derive(Debug)]
-struct Header {
+pub(crate) struct Header {
     manifest_offset: u64,
     data_offset: u64,
     index_offset: u64,
@@ -86,7 +100,7 @@ struct Header {
 }
 
 #[derive(Debug)]
-struct Config {
+pub(crate) struct Config {
     chunk_size: u64,
     small_file_threshold: u64,
     codec_default: String,
@@ -95,39 +109,41 @@ struct Config {
 }
 
 #[derive(Debug)]
-struct FileEntry {
-    file_id: u64,
-    path: String,
-    size: u64,
-    sha256: String,
-    chunk_refs: Vec<u64>,
+pub(crate) struct FileEntry {
+    pub(crate) file_id: u64,
+    pub(crate) path: String,
+    pub(crate) size: u64,
+    pub(crate) mode: u64,
+    pub(crate) mtime_ns: u64,
+    pub(crate) sha256: String,
+    pub(crate) chunk_refs: Vec<u64>,
 }
 
 #[derive(Debug)]
-struct ChunkEntry {
-    chunk_id: u64,
-    file_id: u64,
-    file_offset: u64,
-    size: u64,
-    block_id: u64,
+pub(crate) struct ChunkEntry {
+    pub(crate) chunk_id: u64,
+    pub(crate) file_id: u64,
+    pub(crate) file_offset: u64,
+    pub(crate) size: u64,
+    pub(crate) block_id: u64,
 }
 
 #[derive(Debug)]
-struct BlockEntry {
-    block_id: u64,
-    codec: String,
-    offset: u64,
-    compressed_size: u64,
-    uncompressed_size: u64,
-    checksum: String,
+pub(crate) struct BlockEntry {
+    pub(crate) block_id: u64,
+    pub(crate) codec: String,
+    pub(crate) offset: u64,
+    pub(crate) compressed_size: u64,
+    pub(crate) uncompressed_size: u64,
+    pub(crate) checksum: String,
 }
 
 #[derive(Debug)]
-struct Manifest {
-    config: Config,
-    files: Vec<FileEntry>,
-    chunks: Vec<ChunkEntry>,
-    blocks: Vec<BlockEntry>,
+pub(crate) struct Manifest {
+    pub(crate) config: Config,
+    pub(crate) files: Vec<FileEntry>,
+    pub(crate) chunks: Vec<ChunkEntry>,
+    pub(crate) blocks: Vec<BlockEntry>,
 }
 
 /// Partially-parsed manifest: only config, string table, and file entries are
@@ -305,9 +321,9 @@ fn decode_files(
         pos = p;
         let (size, p) = decode_varint(data, pos)?;
         pos = p;
-        let (_mode, p) = decode_varint(data, pos)?;
+        let (mode, p) = decode_varint(data, pos)?;
         pos = p;
-        let (_mtime_ns, p) = decode_varint(data, pos)?;
+        let (mtime_ns, p) = decode_varint(data, pos)?;
         pos = p;
 
         // type byte
@@ -354,6 +370,8 @@ fn decode_files(
             file_id,
             path,
             size,
+            mode,
+            mtime_ns,
             sha256,
             chunk_refs,
         });
@@ -542,17 +560,17 @@ fn deserialize_manifest_lazy(raw: &[u8]) -> Result<LazyManifest> {
 
 /// Full-parse reader — used by list, extract, info commands that need the
 /// complete manifest.
-struct ArchiveReader {
-    mmap: Mmap,
-    header: Header,
-    manifest: Manifest,
-    files_by_path: HashMap<String, usize>,
-    chunks_by_id: HashMap<u64, usize>,
-    blocks_by_id: HashMap<u64, usize>,
+pub(crate) struct ArchiveReader {
+    pub(crate) mmap: Mmap,
+    pub(crate) header: Header,
+    pub(crate) manifest: Manifest,
+    pub(crate) files_by_path: HashMap<String, usize>,
+    pub(crate) chunks_by_id: HashMap<u64, usize>,
+    pub(crate) blocks_by_id: HashMap<u64, usize>,
 }
 
 impl ArchiveReader {
-    fn open(path: &std::path::Path) -> Result<Self> {
+    pub(crate) fn open(path: &std::path::Path) -> Result<Self> {
         let file = File::open(path)
             .with_context(|| format!("Cannot open archive: {}", path.display()))?;
         let mmap = unsafe { Mmap::map(&file) }
@@ -605,7 +623,7 @@ impl ArchiveReader {
         })
     }
 
-    fn read_block(&self, block_id: u64) -> Result<Vec<u8>> {
+    pub(crate) fn read_block(&self, block_id: u64) -> Result<Vec<u8>> {
         let block_idx = self
             .blocks_by_id
             .get(&block_id)
@@ -2314,5 +2332,11 @@ fn main() -> Result<()> {
         } => cmd_extract(&archive, output_dir),
         Commands::Info { archive } => cmd_info(&archive),
         Commands::Pack { input_dir, output } => cmd_pack(&input_dir, &output),
+        #[cfg(feature = "fuse")]
+        Commands::Mount {
+            archive,
+            mountpoint,
+            cache_size,
+        } => fuse_mount::cmd_mount(&archive, &mountpoint, cache_size),
     }
 }

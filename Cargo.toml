@@ -1,6 +1,6 @@
 [package]
 name = "arcx"
-version = "0.2.0"
+version = "0.3.0"
 edition = "2021"
 description = "A compressed archive format with instant file retrieval"
 license = "Apache-2.0"
@@ -13,6 +13,10 @@ categories = ["command-line-utilities", "compression", "filesystem"]
 name = "arcx"
 path = "src/main.rs"
 
+[features]
+default = []
+fuse = ["dep:fuser", "dep:libc"]
+
 [dependencies]
 clap = { version = "4", features = ["derive"] }
 zstd = "0.13"
@@ -23,3 +27,5 @@ hex = "0.4"
 walkdir = "2"
 crc32fast = "1"
 ureq = "2"
+fuser = { version = "0.14", optional = true }
+libc = { version = "0.2", optional = true }
