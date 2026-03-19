@@ -6,6 +6,8 @@ ARCX is a compressed archive format built for modern workflows. It lets you acce
 
 Fast to create. Fast to query. No full decompression required.
 
+![ARCX demo: tar+zstd vs arcx selective extraction](demo.gif)
+
 ## Why ARCX?
 
 Traditional archives force a choice: compress well (tar+zstd) or access fast (zip). ARCX does both.
