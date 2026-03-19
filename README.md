@@ -2,11 +2,15 @@
 
 **Retrieve a file from a 10,000-file archive in 7 milliseconds.**
 
-ARCX is a compressed archive format built for modern workflows. It lets you access a single file instantly -- without decompressing the entire archive.
+ARCX is a compressed archive format built for modern workflows. It lets CI/CD systems, build tools, and cloud storage retrieve one file without unpacking the whole archive.
 
 Fast to create. Fast to query. No full decompression required.
 
 ![ARCX demo: tar+zstd vs arcx selective extraction](demo.gif)
+
+*Demo: extracting one file from an 800 MB archive. TAR+ZSTD: 239 ms. ARCX: 13 ms.*
+
+> **Full details:** [Benchmark methodology](benchmarks/) | [Format specification](FORMAT.md)
 
 ## Why ARCX?
 
@@ -19,17 +23,23 @@ Traditional archives force a choice: compress well (tar+zstd) or access fast (zi
 
 > ARCX reads kilobytes instead of megabytes.
 
+### Why not ZIP?
+
+- **ZIP** gives fast per-file access, but weak cross-file compression.
+- **TAR+ZSTD** gives strong compression, but slow selective access.
+- **ARCX** is designed to deliver both.
+
 ## Quick Start
 
 ```bash
-# Build from source
-cargo install --path .
-
-# Pack a directory
-arcx pack ./my-project output.arcx
+# Install
+cargo install arcx
 
 # Get a single file (instant)
 time arcx get output.arcx src/main.rs
+
+# Pack a directory
+arcx pack ./my-project output.arcx
 
 # List contents
 arcx list output.arcx
@@ -90,11 +100,11 @@ Node.js Project (19,001 files, 43 MB)
   TAR+GZ    |################################################  1.26 s
 ```
 
-> ARCX turns archive access into a constant-time operation.
+ZIP also supports random access via its central directory -- that is why it appears fast in these charts. The comparison is most meaningful against TAR-based formats, which represent the majority of compressed archives in CI/CD and cloud storage. ARCX combines the compression advantage of TAR+ZSTD with direct file access.
 
-TAR-based formats must decompress the entire archive to reach any file. ARCX reads only the manifest and the specific block(s) containing the target file.
+> ARCX makes archive access effectively direct and block-addressable.
 
-ZIP also supports random access via its central directory. The comparison is most meaningful against TAR-based formats, which represent the majority of compressed archives in CI/CD and cloud storage.
+All measurements are cold-cache medians (3 runs each) on Windows 11, Intel i7 (22 cores). Datasets are synthetic but representative of real-world workloads. See [benchmarks/](benchmarks/) for full methodology and raw data.
 
 ## Compression
 
@@ -107,8 +117,6 @@ ARCX matches TAR+ZSTD compression ratios across all workloads. Both outperform Z
 | Build artifacts | 581 | 180.9 MB | 140.5 MB (77.6%) | 140.4 MB (77.6%) | 140.5 MB (77.7%) |
 | Log archive | 1,008 | 30.4 MB | 5.0 MB (16.5%) | 5.0 MB (16.6%) | 5.1 MB (16.8%) |
 | Source code repo | 389 | 1.9 MB | 683.5 KB (34.3%) | 656.1 KB (33.0%) | 721.8 KB (36.3%) |
-
-All measurements taken on Windows 11, Intel i7 (22 cores), 3 runs per measurement (median). Datasets are synthetic but representative of real-world workloads. See [benchmarks/](benchmarks/) for full methodology and raw data.
 
 ## How It Works
 
@@ -148,15 +156,15 @@ Because multiple files are packed into the same block before compression, zstd s
 - **Game assets** -- Load individual textures, models, or audio files from a compressed asset bundle at runtime.
 - **Log archives** -- Query a specific day's logs from a compressed monthly archive without decompressing the other 29 days.
 
-## Why This Matters
-
-Modern systems don't need entire archives. They need one file, right now.
-
-ARCX makes that possible -- reducing latency, CPU usage, and cloud data transfer costs.
-
 ## Prior Work
 
 Block-based compression and indexed access exist in specialized systems (e.g., BGZF in bioinformatics, WARC for web archives). ARCX brings these ideas into a general-purpose archive format designed for modern developer workflows.
+
+## Current Limitations
+
+- Remote/S3 range-request reads not yet implemented (planned).
+- Manifest index overhead is still being optimized for archives with 100K+ files.
+- Current benchmarks focus on selective access; full extraction performance parity with tar+zstd is expected in the Rust implementation but not yet benchmarked at scale.
 
 ## Format Specification
 
