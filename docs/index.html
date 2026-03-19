@@ -1,0 +1,95 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>ARCX - Instant file retrieval from compressed archives</title>
+<style>
+* { margin: 0; padding: 0; box-sizing: border-box; }
+body { background: #0a0f1a; color: #e0e6f0; font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', sans-serif; line-height: 1.6; }
+a { color: #4f8ff7; text-decoration: none; }
+a:hover { text-decoration: underline; }
+.container { max-width: 800px; margin: 0 auto; padding: 0 24px; }
+
+/* Hero */
+.hero { text-align: center; padding: 100px 0 60px; }
+.hero h1 { font-size: 2.4rem; font-weight: 700; letter-spacing: -0.5px; margin-bottom: 8px; }
+.hero h1 span { color: #4f8ff7; }
+.hero .headline { font-size: 1.5rem; font-weight: 600; color: #ffffff; margin-bottom: 12px; }
+.hero .subline { font-size: 1.1rem; color: #8892a8; margin-bottom: 36px; }
+.ctas { display: flex; gap: 16px; justify-content: center; flex-wrap: wrap; }
+.cta { padding: 14px 28px; border-radius: 8px; font-size: 1rem; font-weight: 600; display: inline-block; }
+.cta-primary { background: #4f8ff7; color: #fff; }
+.cta-primary:hover { background: #3a7ae0; text-decoration: none; }
+.cta-secondary { background: #1a2035; color: #e0e6f0; border: 1px solid #2a3050; font-family: 'Consolas', 'Monaco', monospace; }
+.cta-secondary:hover { border-color: #4f8ff7; text-decoration: none; }
+
+/* Demo */
+.demo { text-align: center; padding: 40px 0; }
+.demo img { max-width: 100%; border-radius: 8px; border: 1px solid #1a2035; }
+.demo .caption { color: #6a7490; font-size: 0.9rem; margin-top: 12px; }
+
+/* Benefits */
+.benefits { padding: 40px 0; display: flex; gap: 24px; justify-content: center; flex-wrap: wrap; }
+.benefit { background: #111827; border: 1px solid #1e2940; border-radius: 10px; padding: 28px 24px; text-align: center; flex: 1; min-width: 200px; }
+.benefit .number { font-size: 2rem; font-weight: 700; color: #4f8ff7; font-family: 'Consolas', 'Monaco', monospace; }
+.benefit .label { color: #8892a8; font-size: 0.95rem; margin-top: 6px; }
+
+/* Explain */
+.explain { padding: 60px 0 40px; text-align: center; }
+.explain h2 { font-size: 1.4rem; margin-bottom: 16px; color: #ffffff; }
+.explain p { color: #8892a8; font-size: 1.05rem; max-width: 600px; margin: 0 auto 20px; }
+
+/* Footer */
+.footer { text-align: center; padding: 60px 0 40px; color: #4a5568; font-size: 0.85rem; border-top: 1px solid #1a2035; margin-top: 40px; }
+.footer a { color: #6a7490; }
+</style>
+</head>
+<body>
+
+<div class="container">
+
+<div class="hero">
+  <h1>A<span>RCX</span></h1>
+  <div class="headline">Retrieve a file from a 10,000-file archive in 7 milliseconds.</div>
+  <div class="subline">Read kilobytes instead of megabytes.</div>
+  <div class="ctas">
+    <a href="https://github.com/getarcx/arcx" class="cta cta-primary">View on GitHub</a>
+    <span class="cta cta-secondary">cargo install arcx</span>
+  </div>
+</div>
+
+<div class="demo">
+  <img src="https://raw.githubusercontent.com/getarcx/arcx/main/demo.gif" alt="ARCX demo: 239ms tar+zstd vs 13ms arcx">
+  <div class="caption">Extracting one file from an 800 MB archive. TAR+ZSTD: 239 ms. ARCX: 13 ms.</div>
+</div>
+
+<div class="benefits">
+  <div class="benefit">
+    <div class="number">7 ms</div>
+    <div class="label">Selective file retrieval</div>
+  </div>
+  <div class="benefit">
+    <div class="number">200x</div>
+    <div class="label">Less data read vs tar+zstd</div>
+  </div>
+  <div class="benefit">
+    <div class="number">~3%</div>
+    <div class="label">Compression parity with tar+zstd</div>
+  </div>
+</div>
+
+<div class="explain">
+  <h2>Stop decompressing everything to get one file.</h2>
+  <p>ARCX is a compressed archive format that combines cross-file compression with indexed random access. It reads only the blocks needed for the file you want.</p>
+  <p>Traditional formats force a choice: compress well (tar+zstd) or access fast (zip). ARCX does both.</p>
+  <a href="https://github.com/getarcx/arcx" class="cta cta-primary" style="margin-top: 16px;">Read the docs on GitHub</a>
+</div>
+
+<div class="footer">
+  <p>Apache 2.0 &middot; <a href="https://github.com/getarcx/arcx">GitHub</a> &middot; Built by <a href="https://highpass.studio">Highpass Studio</a></p>
+</div>
+
+</div>
+</body>
+</html>
