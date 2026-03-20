@@ -278,9 +278,16 @@ impl ArcxFs {
             if chunk_end > offset && file_pos < read_end {
                 let block_data = self.get_block(chunk.block_id)?;
 
-                // Byte range within the decompressed block
+                // For large files, each chunk has its own block starting at offset 0.
+                // For small packed files, file_offset is the position within the pack block.
+                // Since large-file chunks now have file_offset=0 in the packer,
+                // this works correctly for both cases.
                 let block_start = chunk.file_offset as usize;
-                let block_slice = &block_data[block_start..block_start + chunk.size as usize];
+                let block_end = block_start + chunk.size as usize;
+                if block_end > block_data.len() {
+                    return Err(libc::EIO);
+                }
+                let block_slice = &block_data[block_start..block_end];
 
                 // Map the requested file range into this chunk's slice
                 let slice_start = if offset > file_pos {
@@ -479,6 +486,8 @@ pub fn cmd_mount(archive: &str, mountpoint: &Path, cache_size: usize) -> Result<
         MountOption::RO,
         MountOption::FSName(format!("arcx:{}", archive)),
         MountOption::Subtype("arcx".to_string()),
+        MountOption::AutoUnmount,
+        MountOption::AllowOther,
     ];
 
     // This blocks until the filesystem is unmounted (Ctrl+C / fusermount -u)
