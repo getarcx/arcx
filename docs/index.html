@@ -4,7 +4,7 @@
 <meta charset="UTF-8">
 <meta name="viewport" content="width=device-width, initial-scale=1.0">
 <title>ARCX - Fast Compressed Archives with Selective Access</title>
-<meta name="description" content="ARCX is a compressed archive format with indexed, block-level access. Retrieve any file from a 10,000-file archive in 7 milliseconds.">
+<meta name="description" content="ARCX is a compressed archive format with indexed, block-level access. Extract 1 file from a 5GB archive in 7ms. 811x faster than tar.gz. Works with S3 and HTTPS.">
 <style>
 *, *::before, *::after {
   box-sizing: border-box;
@@ -535,8 +535,8 @@ footer a {
 <!-- HERO -->
 <section class="hero">
   <div class="container">
-    <h1>Retrieve a file from a 10,000-file archive in 7&nbsp;milliseconds.</h1>
-    <p class="subline">Fast to create. Fast to query. No full archive decompression required.</p>
+    <h1>Extract 1 file from a 5&nbsp;GB archive in 7&nbsp;milliseconds.</h1>
+    <p class="subline">811x faster than tar.gz. Works with S3, HTTPS, and local files.</p>
     <div class="hero-ctas">
       <a href="https://github.com/getarcx/arcx" class="btn-primary">View on GitHub</a>
       <code class="code-cta">cargo install arcx</code>
@@ -574,21 +574,23 @@ footer a {
     <h2 class="section-title">Key Numbers</h2>
     <div class="stats-grid">
       <div class="stat-card">
-        <div class="stat-number mono">7ms</div>
-        <div class="stat-label">Selective file retrieval from a completed archive</div>
+        <div class="stat-number mono">811x</div>
+        <div class="stat-label">Faster than tar.gz on 5 GB archive</div>
+        <div class="stat-sublabel">7 ms vs 5,675 ms</div>
+      </div>
+      <div class="stat-card">
+        <div class="stat-number mono">3%</div>
+        <div class="stat-label">Of remote archive downloaded</div>
+        <div class="stat-sublabel">455 KB of 15 MB over HTTPS</div>
+      </div>
+      <div class="stat-card">
+        <div class="stat-number mono">3</div>
+        <div class="stat-label">HTTP requests for remote file extraction</div>
+        <div class="stat-sublabel">footer + manifest + one block</div>
       </div>
       <div class="stat-card">
         <div class="stat-number mono">200x</div>
         <div class="stat-label">Less data read from disk vs TAR+ZSTD</div>
-      </div>
-      <div class="stat-card">
-        <div class="stat-number mono">~3%</div>
-        <div class="stat-label">Compression overhead vs TAR+ZSTD</div>
-      </div>
-      <div class="stat-card">
-        <div class="stat-number mono">3</div>
-        <div class="stat-label">I/O requests for remote selective access</div>
-        <div class="stat-sublabel">footer + manifest + one block</div>
       </div>
     </div>
   </div>
