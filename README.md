@@ -1,10 +1,10 @@
 # ARCX
 
-**Retrieve a file from a 10,000-file archive in 7 milliseconds.**
+**Retrieve a file from a 5 GB archive in 7 ms. 811x faster than tar.gz.**
 
-ARCX is a compressed archive format built for modern workflows. It lets CI/CD systems, build tools, and cloud storage retrieve one file without unpacking the whole archive.
+ARCX is a compressed archive format built for modern workflows. It lets CI/CD systems, build tools, and cloud storage retrieve one file without unpacking the whole archive — locally or remotely via HTTP range requests.
 
-Fast to create. Fast to query. No full decompression required.
+Fast to create. Fast to query. Works with S3 and HTTPS. No full decompression required.
 
 ![ARCX demo: tar+zstd vs arcx selective extraction](demo.gif)
 
@@ -18,8 +18,11 @@ Traditional archives force a choice: compress well (tar+zstd) or access fast (zi
 
 - Cross-file compression matching tar+zstd ratios
 - Indexed, block-level access to any file
-- Single-digit millisecond retrieval
+- Single-digit millisecond retrieval (7 ms from a 5 GB archive)
+- Remote extraction via HTTP range requests (S3, HTTPS)
 - Up to 200x less data read than tar+zstd
+- Python bindings: `pip install getarcx`
+- GitHub Action: `getarcx/cache@v1`
 
 > ARCX reads kilobytes instead of megabytes.
 
@@ -32,26 +35,61 @@ Traditional archives force a choice: compress well (tar+zstd) or access fast (zi
 ## Quick Start
 
 ```bash
-# Install
+# Install (Rust)
 cargo install arcx
 
-# Get a single file (instant)
-time arcx get output.arcx src/main.rs
+# Or Python
+pip install getarcx
 
 # Pack a directory
 arcx pack ./my-project output.arcx
+
+# Get a single file (instant)
+arcx get output.arcx src/main.rs --time
 
 # List contents
 arcx list output.arcx
 
 # Extract everything
 arcx extract output.arcx ./output-dir
+```
 
-# Show archive info
-arcx info output.arcx
+## Remote Extraction (S3 / HTTPS)
 
-# Detailed timing breakdown
-arcx get output.arcx src/main.rs --time
+Extract files from remote archives without downloading the whole thing. ARCX uses HTTP range requests to fetch only the footer, manifest, and needed blocks.
+
+```bash
+# Extract one file from a remote archive (downloads only ~3% of the archive)
+arcx get https://example.com/artifacts.arcx path/to/file.txt
+
+# Works with S3 URLs
+arcx get s3://my-bucket/build.arcx src/main.rs
+
+# List files remotely (downloads only the manifest — 0.09% of archive)
+arcx list s3://my-bucket/build.arcx
+
+# Remote archive info
+arcx info https://example.com/artifacts.arcx
+```
+
+**Remote benchmark (15 MB archive over HTTPS):**
+
+| File | Downloaded | % of Archive | HTTP Requests | Time |
+|------|-----------|:------------:|:-------------:|-----:|
+| 3.6 KB source file | 455.8 KB | 3.01% | 3 | 267 ms |
+| 81 KB data file | 94.9 KB | 0.63% | 3 | 314 ms |
+| 3.6 MB asset | 3.6 MB | 24.28% | 6 | 730 ms |
+| List all 128 files | 13.8 KB | 0.09% | 2 | — |
+
+## GitHub Action
+
+Drop-in replacement for `actions/cache` using ARCX for faster selective restoration:
+
+```yaml
+- uses: getarcx/cache@v1
+  with:
+    path: build/artifacts
+    key: build-${{ hashFiles('**/Cargo.lock') }}
 ```
 
 ## Data Movement (The Real Bottleneck)
@@ -98,6 +136,10 @@ Node.js Project (19,001 files, 43 MB)
   ZIP       |##                                            |  62.5 ms
   TAR+ZSTD  |################################              | 840.9 ms
   TAR+GZ    |################################################  1.26 s
+
+Large Benchmark (760 files, 5 GB)
+  ARCX      |#                                             |   7.3 ms
+  TAR+GZ    |################################################  5.68 s      811x slower
 ```
 
 ZIP also supports random access via its central directory -- that is why it appears fast in these charts. The comparison is most meaningful against TAR-based formats, which represent the majority of compressed archives in CI/CD and cloud storage. ARCX combines the compression advantage of TAR+ZSTD with direct file access.
@@ -144,6 +186,8 @@ On a `get` operation, ARCX:
 
 Total I/O: footer + manifest + one block. Everything else is untouched.
 
+For remote archives (S3/HTTPS), the same logic applies over HTTP range requests. ARCX fetches the footer (40 bytes), manifest (~14 KB), and only the needed block(s) — typically downloading less than 3% of the archive.
+
 ### Cross-File Compression
 
 Because multiple files are packed into the same block before compression, zstd sees cross-file redundancy. This is why ARCX matches TAR+ZSTD compression ratios -- both compress files together -- while ZIP compresses each file independently.
@@ -162,7 +206,6 @@ Block-based compression and indexed access exist in specialized systems (e.g., B
 
 ## Current Limitations
 
-- Remote/S3 range-request reads not yet implemented (planned).
 - Manifest index overhead is still being optimized for archives with 100K+ files.
 - Current benchmarks focus on selective access; full extraction performance parity with tar+zstd is expected in the Rust implementation but not yet benchmarked at scale.
 
